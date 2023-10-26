@@ -1,20 +1,11 @@
-# ------------------------------------------------------------------------------
-# Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-#
-# This work is made available under the Nvidia Source Code License.
-# To view a copy of this license, visit
-# https://github.com/NVlabs/ODISE/blob/main/LICENSE
-#
-# Written by Jiarui Xu
-# ------------------------------------------------------------------------------
 
 from detectron2.config import LazyCall as L
 from detectron2.data import MetadataCatalog
 
-from odise.data.build import get_openseg_labels
-from odise.modeling.meta_arch.odise import (
-    CategoryODISE,
-    ODISEMultiScaleMaskedTransformerDecoder,
+from DiffCIS.data.build import get_instance_labels
+from DiffCIS.modeling.meta_arch.DiffCIS import (
+    CategoryDiffCIS,
+    DiffCISMultiScaleMaskedTransformerDecoder,
     PooledMaskEmbed,
     CategoryEmbed,
     PseudoClassEmbed,
@@ -25,26 +16,27 @@ from mask2former.modeling.criterion import SetCriterion
 from mask2former.modeling.matcher import HungarianMatcher
 from mask2former.modeling.pixel_decoder.msdeformattn import MSDeformAttnPixelDecoder
 
-model = L(CategoryODISE)(
+model = L(CategoryDiffCIS)(
     sem_seg_head=L(MaskFormerHead)(
         ignore_value=255,
-        num_classes=133,
+        num_classes=1,
         pixel_decoder=L(MSDeformAttnPixelDecoder)(
-            conv_dim=256,
-            mask_dim=256,
+            conv_dim=128,
+            mask_dim=128,
             norm="GN",
             transformer_dropout=0.0,
-            transformer_nheads=8,
-            transformer_dim_feedforward=1024,
+            transformer_nheads=4,
+            transformer_dim_feedforward=512,
             transformer_enc_layers=6,
             transformer_in_features=["s3", "s4", "s5"],
+            # transformer_in_features=["res3", "res4", "res5"],
             common_stride=4,
         ),
         loss_weight=1.0,
         transformer_in_feature="multi_scale_pixel_decoder",
-        transformer_predictor=L(ODISEMultiScaleMaskedTransformerDecoder)(
+        transformer_predictor=L(DiffCISMultiScaleMaskedTransformerDecoder)(
             class_embed=L(PseudoClassEmbed)(num_classes="${..num_classes}"),
-            hidden_dim=256,
+            hidden_dim=128,
             post_mask_embed=L(PooledMaskEmbed)(
                 hidden_dim="${..hidden_dim}",
                 mask_dim="${..mask_dim}",
@@ -54,13 +46,13 @@ model = L(CategoryODISE)(
             mask_classification=True,
             num_classes="${..num_classes}",
             num_queries="${...num_queries}",
-            nheads=8,
-            dim_feedforward=2048,
-            # 9 decoder layers, add one for the loss on learnable query
-            dec_layers=9,
+            nheads=4,
+            dim_feedforward=1024,
+            # 5 decoder layers, add one for the loss on learnable query
+            dec_layers=5,
             pre_norm=False,
             enforce_input_project=False,
-            mask_dim=256,
+            mask_dim=128,
         ),
     ),
     criterion=L(SetCriterion)(
@@ -82,23 +74,25 @@ model = L(CategoryODISE)(
         importance_sample_ratio=0.75,
     ),
     category_head=L(CategoryEmbed)(
-        clip_model_name="ViT-L-14-336",
-        labels=L(get_openseg_labels)(dataset="coco_panoptic", prompt_engineered=True),
+        # clip_model_name="ViT-L-14-336",
+        clip_model_name="ViT-B-16",
+        labels=L(get_instance_labels)(dataset="cod10k", prompt_engineered=False),
         projection_dim="${..sem_seg_head.transformer_predictor.post_mask_embed.projection_dim}",
     ),
+    # category_head=None,
     clip_head=L(PoolingCLIPHead)(),
-    num_queries=100,
+    num_queries=10,
     object_mask_threshold=0.0,
     overlap_threshold=0.8,
-    metadata=L(MetadataCatalog.get)(name="coco_2017_train_panoptic_with_sem_seg"),
+    metadata=L(MetadataCatalog.get)(name="cod10k_train"),
     size_divisibility=64,
     sem_seg_postprocess_before_inference=True,
     # normalize to [0, 1]
     pixel_mean=[0.0, 0.0, 0.0],
     pixel_std=[255.0, 255.0, 255.0],
     # inference
-    semantic_on=True,
+    semantic_on=False,
     instance_on=True,
-    panoptic_on=True,
-    test_topk_per_image=100,
+    panoptic_on=False,
+    test_topk_per_image=10,
 )

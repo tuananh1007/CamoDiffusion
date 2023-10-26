@@ -1,14 +1,3 @@
-#!/usr/bin/env python
-#
-# ------------------------------------------------------------------------------
-# Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-#
-# This work is made available under the Nvidia Source Code License.
-# To view a copy of this license, visit
-# https://github.com/NVlabs/ODISE/blob/main/LICENSE
-#
-# Written by Jiarui Xu
-# ------------------------------------------------------------------------------
 
 import glob
 import os
@@ -23,7 +12,7 @@ assert torch_ver >= [1, 8], "Requires PyTorch >= 1.8"
 
 
 def get_version():
-    init_py_path = path.join(path.abspath(path.dirname(__file__)), "odise", "__init__.py")
+    init_py_path = path.join(path.abspath(path.dirname(__file__)), "DiffCIS", "__init__.py")
     init_py = open(init_py_path, "r").readlines()
     version_line = [l.strip() for l in init_py if l.startswith("__version__")][0]
     version = version_line.split("=")[-1].strip().strip("'\"")
@@ -34,12 +23,12 @@ def get_version():
 def get_model_zoo_configs() -> List[str]:
     """
     Return a list of configs to include in package for model zoo. Copy over these configs inside
-    odise/model_zoo.
+    DiffCIS/model_zoo.
     """
 
     # Use absolute paths while symlinking.
     source_configs_dir = path.join(path.dirname(path.realpath(__file__)), "configs")
-    destination = path.join(path.dirname(path.realpath(__file__)), "odise", "model_zoo", "configs")
+    destination = path.join(path.dirname(path.realpath(__file__)), "DiffCIS", "model_zoo", "configs")
     # Symlink the config directory inside package to have a cleaner pip install.
 
     # Remove stale symlink/directory from a previous build.
@@ -63,13 +52,13 @@ def get_model_zoo_configs() -> List[str]:
 
 
 setup(
-    name="odise",
+    name="DiffCIS",
     version=get_version(),
     author="Jiarui Xu",
     url="https://github.com/NVlabs/ODISE",
     description="Open-vocabulary DIffusion-based Panoptic Segmentation",
     packages=find_packages(exclude=("configs", "tests*")),
-    package_data={"odise.model_zoo": get_model_zoo_configs()},
+    package_data={"DiffCIS.model_zoo": get_model_zoo_configs()},
     python_requires=">=3.8",
     install_requires=[
         "timm==0.6.11",  # freeze timm version for stabliity
@@ -87,7 +76,7 @@ setup(
         "stable-diffusion-sdkit==2.1.3",
     ],
     extras_require={
-        # dev dependencies. Install them by `pip install 'odise[dev]'`
+        # dev dependencies. Install them by `pip install 'DiffCIS[dev]'`
         "dev": [
             "flake8==3.8.1",
             "isort==4.3.21",

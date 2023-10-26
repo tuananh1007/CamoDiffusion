@@ -48,6 +48,13 @@ python demo/demo.py --input demo/examples/purse.jpeg --output demo/purse_pred.jp
 
 We provide a script `tools/train_net.py` that trains all configurations of ODISE.
 
+```bash
+(node0)$ ./tools/train_net.py --config-file configs/Panoptic/odise_label_coco_50e.py --num-gpus 4 --amp --ref 16
+```
+
+
+
+
 To train a model with `tools/train_net.py`, first prepare the datasets following the instructions in
 [datasets/README.md](./datasets/README.md) and then run, for single-node (8-GPUs) NVIDIA AMP-based training:
 ```bash

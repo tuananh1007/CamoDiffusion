@@ -1,18 +1,3 @@
-# ------------------------------------------------------------------------------
-# Copyright (c) Facebook, Inc. and its affiliates.
-# To view a copy of this license, visit
-# https://github.com/facebookresearch/detectron2/blob/main/LICENSE
-# ------------------------------------------------------------------------------
-#
-# ------------------------------------------------------------------------------
-# Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-#
-# This work is made available under the Nvidia Source Code License.
-# To view a copy of this license, visit
-# https://github.com/NVlabs/ODISE/blob/main/LICENSE
-#
-# Written by Jiarui Xu
-# ------------------------------------------------------------------------------
 
 # Common training-related configs that are designed for "tools/lazyconfig_train_net.py"
 # You can use your own instead, together with your own train_net.py
@@ -29,9 +14,9 @@ train = dict(
     ddp=dict(  # options for DistributedDataParallel
         broadcast_buffers=False,
         find_unused_parameters=False,
-        fp16_compression=False,
+        fp16_compression=True, #speed-up?
     ),
-    checkpointer=dict(period=5000, max_to_keep=2),  # options for PeriodicCheckpointer
+    checkpointer=dict(period=500, max_to_keep=2),  # options for PeriodicCheckpointer
     eval_period="${train.checkpointer.period}",
     log_period=50,
     device="cuda",
@@ -40,7 +25,7 @@ train = dict(
     wandb=dict(
         enable_writer=False,
         resume=False,
-        project="ODISE",
+        project="DiffCIS",
     ),
     cfg_name="",
     run_name="",

@@ -1,20 +1,5 @@
 #!/usr/bin/env python
 #
-# ------------------------------------------------------------------------------
-# Copyright (c) Facebook, Inc. and its affiliates.
-# To view a copy of this license, visit
-# https://github.com/facebookresearch/detectron2/blob/main/LICENSE
-# ------------------------------------------------------------------------------
-#
-# ------------------------------------------------------------------------------
-# Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-#
-# This work is made available under the Nvidia Source Code License.
-# To view a copy of this license, visit
-# https://github.com/NVlabs/ODISE/blob/main/LICENSE
-#
-# Written by Jiarui Xu
-# ------------------------------------------------------------------------------
 """
 Training script using the new "LazyConfig" python config files.
 
@@ -42,17 +27,18 @@ from detectron2.utils.logger import setup_logger
 from iopath.common.s3 import S3PathHandler
 from omegaconf import OmegaConf
 
-from odise.checkpoint import ODISECheckpointer
-from odise.config import auto_scale_workers, instantiate_odise
-from odise.engine.defaults import default_setup, get_dataset_from_loader, get_model_from_module
-from odise.engine.hooks import EvalHook
-from odise.engine.train_loop import AMPTrainer, SimpleTrainer
-from odise.evaluation import inference_on_dataset
-from odise.utils.events import CommonMetricPrinter, WandbWriter, WriterStack
+from DiffCIS.checkpoint import DiffCISCheckpointer
+from DiffCIS.config import auto_scale_workers, instantiate_diffcis
+from DiffCIS.engine.defaults import default_setup, get_dataset_from_loader, get_model_from_module
+from DiffCIS.engine.hooks import EvalHook
+from DiffCIS.engine.train_loop import AMPTrainer, SimpleTrainer
+from DiffCIS.evaluation import inference_on_dataset
+from DiffCIS.utils.events import CommonMetricPrinter, WandbWriter, WriterStack
+from DiffCIS.data.datasets.register_cis import register_all_cod10k_instance
 
 PathManager.register_handler(S3PathHandler())
 
-logger = logging.getLogger("odise")
+logger = logging.getLogger("DiffCIS")
 
 
 def default_writers(cfg):
@@ -226,12 +212,12 @@ def do_train(args, cfg):
                 max_iter (int)
                 eval_period, log_period (int)
                 device (str)
-                checkpointer (dict)
+                DiffCISCheckpointer (dict)
                 ddp (dict)
     """
-    logger = logging.getLogger("odise")
+    logger = logging.getLogger("DiffCIS")
     # set wandb resume before create writer
-    cfg.train.wandb.resume = args.resume and ODISECheckpointer.has_checkpoint_in_dir(
+    cfg.train.wandb.resume = args.resume and DiffCISCheckpointer.has_checkpoint_in_dir(
         cfg.train.output_dir
     )
     # create writers at the beginning for W&B logging
@@ -251,7 +237,7 @@ def do_train(args, cfg):
         # log config again for w&b
         logger.info(f"Config:\n{LazyConfig.to_py(cfg)}")
 
-        model = instantiate_odise(cfg.model)
+        model = instantiate_diffcis(cfg.model)
         model.to(cfg.train.device)
 
         cfg.optimizer.params.model = model
@@ -266,7 +252,7 @@ def do_train(args, cfg):
             model = create_ddp_model(model, **cfg.train.ddp)
             trainer = SimpleTrainer(model, train_loader, optim, grad_clip=cfg.train.grad_clip)
 
-        checkpointer = ODISECheckpointer(
+        checkpointer = DiffCISCheckpointer(
             model,
             cfg.train.output_dir,
             trainer=trainer,
@@ -314,6 +300,7 @@ def main(args):
     cfg.train.run_name = (
         "${train.cfg_name}_bs${dataloader.train.total_batch_size}" + f"x{comm.get_world_size()}"
     )
+    print(cfg.train.run_name)
     if hasattr(args, "reference_world_size") and args.reference_world_size:
         cfg.train.reference_world_size = args.reference_world_size
     cfg = auto_scale_workers(cfg, comm.get_world_size())
@@ -337,15 +324,17 @@ def main(args):
         cfg.train.log_dir = osp.join(cfg.train.log_dir, args.log_tag)
     cfg = LazyConfig.apply_overrides(cfg, args.opts)
     default_setup(cfg, args)
-    logger = setup_logger(cfg.train.log_dir, distributed_rank=comm.get_rank(), name="odise")
+    logger = setup_logger(cfg.train.log_dir, distributed_rank=comm.get_rank(), name="DiffCIS")
 
     logger.info(f"Running with config:\n{LazyConfig.to_py(cfg)}")
 
+    register_all_cod10k_instance()
+
     if args.eval_only:
-        model = instantiate_odise(cfg.model)
+        model = instantiate_diffcis(cfg.model)
         model.to(cfg.train.device)
         model = create_ddp_model(model)
-        ODISECheckpointer(model, cfg.train.output_dir).resume_or_load(
+        DiffCISCheckpointer(model, cfg.train.output_dir).resume_or_load(
             cfg.train.init_checkpoint, resume=args.resume
         )
         with ExitStack() as stack:
@@ -365,7 +354,7 @@ def main(args):
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        "odise training and evaluation script",
+        "DiffCIS training and evaluation script",
         parents=[default_argument_parser()],
         add_help=False,
     )
@@ -381,6 +370,7 @@ def parse_args():
     parser.add_argument("--wandb", action="store_true", help="Use W&B to log experiments")
     parser.add_argument("--amp", action="store_true", help="Use AMP for mixed precision training")
     parser.add_argument("--reference-world-size", "--ref", type=int)
+    parser.add_argument("--eval_only", action="store_true", help="Use for evaluate only")
 
     args = parser.parse_args()
 
